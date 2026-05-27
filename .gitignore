@@ -48,3 +48,5 @@ next-env.d.ts
 /android/build
 /android/local.properties
 dev.db
+*.jks
+*.keystore
