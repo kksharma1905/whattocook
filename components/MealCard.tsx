@@ -7,6 +7,7 @@ import type { Category } from "@/lib/types";
 // expose StoredMeal + Suggestion so callers can import from here
 export type { StoredMeal, Suggestion };
 import TagBadge from "./TagBadge";
+import { MealImage } from "./MealImage";
 
 const categoryLabels: Record<Category, { label: string; subtitle: string }> = {
   BREAKFAST: { label: "BREAKFAST", subtitle: "TOAST TO THE MORNING" },
@@ -40,7 +41,6 @@ export default function MealCard({
   showPhoto = true,
   daysSinceCooked,
 }: MealCardProps) {
-  const [imgError, setImgError] = useState(false);
   const { label, subtitle } = categoryLabels[category];
 
   function handleCooked() {
@@ -107,25 +107,7 @@ export default function MealCard({
 
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, margin: "8px 0 10px" }}>
         {showPhoto && (
-          item.imageUrl && !imgError ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={item.imageUrl}
-              alt={item.name}
-              onError={() => setImgError(true)}
-              style={{
-                width: 72,
-                height: 72,
-                borderRadius: 12,
-                objectFit: "cover",
-                flexShrink: 0,
-                opacity: isCooked ? 0.6 : 1,
-                transition: "opacity 0.3s",
-              }}
-            />
-          ) : (
-            <LetterAvatar name={item.name} size={72} dim={isCooked} />
-          )
+          <MealImage name={item.name} initialUrl={item.imageUrl} size={72} dim={isCooked} />
         )}
         <div>
           <h2
@@ -240,49 +222,6 @@ export default function MealCard({
           </button>
         </div>
       )}
-    </div>
-  );
-}
-
-const AVATAR_COLORS = [
-  ["#f4a875", "#7a3e1a"],
-  ["#9b88cc", "#2e1a6b"],
-  ["#6abf69", "#1a4d1a"],
-  ["#f5c842", "#5c4400"],
-  ["#e88a6b", "#6b2a10"],
-  ["#7ec8a0", "#1a5c3a"],
-  ["#c4907a", "#5c2a10"],
-  ["#88b4e8", "#1a3a6b"],
-];
-
-function letterAvatarColors(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-function LetterAvatar({ name, size, dim }: { name: string; size: number; dim?: boolean }) {
-  const [bg, fg] = letterAvatarColors(name);
-  return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: 12,
-        background: bg,
-        flexShrink: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: size * 0.42,
-        fontWeight: 700,
-        color: fg,
-        opacity: dim ? 0.6 : 1,
-        transition: "opacity 0.3s",
-        userSelect: "none",
-      }}
-    >
-      {name.charAt(0).toUpperCase()}
     </div>
   );
 }

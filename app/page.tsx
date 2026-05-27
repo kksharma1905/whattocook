@@ -153,6 +153,9 @@ export default function TodayPage() {
   const todayRef = useRef(today);
   const tomorrowRef = useRef(tomorrow);
   const settingsRef = useRef<StoredSettings | null>(null);
+  // Per-(day,category) ring buffer of recently shuffled IDs so back-to-back
+  // shuffles spread across the full pool instead of bouncing between a few.
+  const shuffleHistoryRef = useRef<Record<string, string[]>>({});
   useEffect(() => { todayRef.current = today; }, [today]);
   useEffect(() => { tomorrowRef.current = tomorrow; }, [tomorrow]);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
@@ -234,13 +237,26 @@ export default function TodayPage() {
 
     const sameDay = day === "today" ? todayRef.current : tomorrowRef.current;
     const otherDay = day === "today" ? tomorrowRef.current : todayRef.current;
+    const currentId = sameDay[category]?.item.id;
+    const otherDaySameCatId = otherDay[category]?.item.id;
+    const histKey = `${day}:${category}`;
+    const history = shuffleHistoryRef.current[histKey] ?? [];
+
+    // Only block: the visible card, the same category on the other day, and the
+    // most-recent ~10 shuffle results. Cross-category dupes within a day are fine.
     const excludeIds = [
-      ...Object.values(otherDay).filter(Boolean).map((s) => s!.item.id),
-      ...Object.entries(sameDay).filter(([cat, s]) => cat !== category && s).map(([, s]) => s!.item.id),
+      ...(currentId ? [currentId] : []),
+      ...(otherDaySameCatId ? [otherDaySameCatId] : []),
+      ...history,
     ];
 
     const s = settingsRef.current ?? getSettings();
-    const suggestion = getRecommendation(category, s, excludeIds);
+    const suggestion = getRecommendation(category, s, excludeIds, true);
+
+    if (suggestion) {
+      const next = [...history, suggestion.item.id].slice(-10);
+      shuffleHistoryRef.current[histKey] = next;
+    }
 
     if (day === "today") {
       setToday((prev) => {
@@ -264,9 +280,13 @@ export default function TodayPage() {
     setRespinning(true);
 
     const otherDay = day === "today" ? tomorrowRef.current : todayRef.current;
-    const excludeIds = Object.values(otherDay).filter(Boolean).map((s) => s!.item.id);
+    const sameDay = day === "today" ? todayRef.current : tomorrowRef.current;
+    const excludeIds = [
+      ...Object.values(sameDay).filter(Boolean).map((s) => s!.item.id),
+      ...Object.values(otherDay).filter(Boolean).map((s) => s!.item.id),
+    ];
     const s = settingsRef.current ?? getSettings();
-    const fresh = getRecommendations(s, excludeIds);
+    const fresh = getRecommendations(s, excludeIds, true);
 
     if (day === "today") {
       setToday(fresh);

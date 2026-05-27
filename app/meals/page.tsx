@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { Category } from "@/lib/types";
 import TagBadge from "@/components/TagBadge";
 import AddMealDialog from "@/components/AddMealDialog";
+import { MealImage } from "@/components/MealImage";
 import {
   getMealsWithHistory, deleteMeal, toggleFavorite, addCookLog,
   type StoredMeal,
@@ -118,12 +119,7 @@ export default function MealsPage() {
                     position: "relative",
                   }}
                 >
-                  {meal.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={meal.imageUrl} alt={meal.name} style={{ width: 52, height: 52, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} />
-                  ) : (
-                    <div style={{ width: 52, height: 52, borderRadius: 12, background: "#f5e6c8", flexShrink: 0 }} />
-                  )}
+                  <MealImage name={meal.name} initialUrl={meal.imageUrl} size={52} />
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

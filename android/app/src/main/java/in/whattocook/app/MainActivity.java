@@ -1,4 +1,4 @@
-package com.whattocook.app;
+package in.whattocook.app;
 
 import com.getcapacitor.BridgeActivity;
 

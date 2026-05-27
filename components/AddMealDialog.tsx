@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Category, Difficulty } from "@/lib/types";
 import { addMeal, updateMeal } from "@/lib/store";
 
-const ALL_TAGS = ["VEG", "NON-VEG", "QUICK", "HEALTHY", "FESTIVE"];
+const ALL_TAGS = ["VEG", "NON-VEG", "QUICK", "HEALTHY", "SPECIAL"];
 
 interface AddMealDialogProps {
   category: Category;

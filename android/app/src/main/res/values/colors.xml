@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#c4533a</color>
+    <color name="colorPrimaryDark">#b04530</color>
+    <color name="colorAccent">#c4533a</color>
+    <color name="wtc_bg">#f4efe6</color>
+</resources>

@@ -57,7 +57,7 @@ const K = {
   logs: "wtc:logs",
   shop: "wtc:shop",
   settings: "wtc:settings",
-  seeded: "wtc:seeded_v3",
+  seeded: "wtc:seeded_v4",
 };
 
 // ─── Primitives ───────────────────────────────────────────────────────────────
@@ -95,7 +95,6 @@ export function initIfEmpty(): void {
     ...m,
     id: uid(),
     notes: null,
-    imageUrl: null,
     ingredients: [],
     isFavorite: false,
     createdAt: ts,
@@ -238,26 +237,32 @@ function shuffle<T>(arr: T[]): T[] {
 export function getRecommendation(
   category: Category,
   settings: StoredSettings,
-  excludeIds: string[] = []
+  excludeIds: string[] = [],
+  forceRandom = false
 ): Suggestion | null {
   const cutoffMs = Date.now() - settings.avoidRepeatDays * 86400000;
   const allMeals = getMeals(category);
   const allLogs = getCookLogs().filter((l) => l.mealType === category);
   const lastCookedMap = buildLastCookedMap();
 
-  const recentIds = new Set([
-    ...allLogs.filter((l) => new Date(l.cookedAt).getTime() >= cutoffMs).map((l) => l.mealItemId),
-    ...excludeIds,
-  ]);
+  const excludeSet = new Set(excludeIds);
+  // forceRandom bypasses the "avoid recently cooked" filter — user explicitly
+  // asked for variety, so any dish (except those passed via excludeIds) is fair game.
+  const recentIds = forceRandom
+    ? excludeSet
+    : new Set([
+        ...allLogs.filter((l) => new Date(l.cookedAt).getTime() >= cutoffMs).map((l) => l.mealItemId),
+        ...excludeIds,
+      ]);
 
   const fresh = allMeals.filter((m) => !recentIds.has(m.id));
-  const stale = allMeals.filter((m) => recentIds.has(m.id) && !excludeIds.includes(m.id));
+  const stale = allMeals.filter((m) => recentIds.has(m.id) && !excludeSet.has(m.id));
   const pool = fresh.length > 0 ? fresh : stale;
   if (pool.length === 0) return null;
 
   let picked: StoredMeal;
 
-  if (settings.recommendationStyle === "RANDOM") {
+  if (forceRandom || settings.recommendationStyle === "RANDOM") {
     picked = shuffle(pool)[0];
   } else if (settings.recommendationStyle === "WEIGHTED") {
     const scored = pool.map((m) => {
@@ -294,14 +299,15 @@ export function getRecommendation(
 
 export function getRecommendations(
   settings: StoredSettings,
-  excludeIds: string[] = []
+  excludeIds: string[] = [],
+  forceRandom = false
 ): Record<Category, Suggestion | null> {
   const categories: Category[] = settings.enableSnacks
     ? ["BREAKFAST", "LUNCH", "SNACK", "DINNER"]
     : ["BREAKFAST", "LUNCH", "DINNER"];
   const result: Record<string, Suggestion | null> = {};
   for (const cat of categories) {
-    result[cat] = getRecommendation(cat, settings, excludeIds);
+    result[cat] = getRecommendation(cat, settings, excludeIds, forceRandom);
   }
   return result as Record<Category, Suggestion | null>;
 }

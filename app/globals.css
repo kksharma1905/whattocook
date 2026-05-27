@@ -16,8 +16,8 @@
   --tag-quick-text: #856404;
   --tag-healthy: #d1ecf1;
   --tag-healthy-text: #0c5460;
-  --tag-festive: #e8d5f5;
-  --tag-festive-text: #6f42c1;
+  --tag-special: #e8d5f5;
+  --tag-special-text: #6f42c1;
   --dot-breakfast: #f5c842;
   --dot-lunch: #f4a875;
   --dot-dinner: #9b88cc;
@@ -43,7 +43,8 @@ body {
   min-height: 100vh;
   position: relative;
   background: var(--bg);
-  padding-bottom: 88px;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: calc(88px + env(safe-area-inset-bottom));
 }
 
 .serif {

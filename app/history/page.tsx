@@ -17,22 +17,32 @@ const dotColors: Record<Category, string> = {
   SNACK: "var(--dot-snack)",
 };
 
+function localDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function parseLocalDateKey(key: string): Date {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function groupByDay(entries: StoredLog[]): GroupedDay[] {
   const map = new Map<string, StoredLog[]>();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   for (const e of entries) {
-    const d = new Date(e.cookedAt);
-    d.setHours(0, 0, 0, 0);
-    const key = d.toISOString().split("T")[0];
+    const key = localDateKey(new Date(e.cookedAt));
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(e);
   }
 
   const days: GroupedDay[] = [];
   for (const [key, dayEntries] of map.entries()) {
-    const d = new Date(key);
+    const d = parseLocalDateKey(key);
     const diffDays = Math.round((today.getTime() - d.getTime()) / 86400000);
     const label = diffDays === 0 ? "Today" : diffDays === 1 ? "Yesterday" : `${diffDays} days ago`;
     days.push({ label, dateStr: key, entries: dayEntries });
