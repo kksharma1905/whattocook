@@ -1,26 +1,88 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #f4efe6;
+  --card: #ffffff;
+  --primary: #c4533a;
+  --primary-hover: #b04530;
+  --text: #1a1a1a;
+  --text-muted: #6b6560;
+  --border: #e8e0d4;
+  --tag-veg: #d4edda;
+  --tag-veg-text: #3a7d44;
+  --tag-nonveg: #fde8e4;
+  --tag-nonveg-text: #c4533a;
+  --tag-quick: #fef3cd;
+  --tag-quick-text: #856404;
+  --tag-healthy: #d1ecf1;
+  --tag-healthy-text: #0c5460;
+  --tag-festive: #e8d5f5;
+  --tag-festive-text: #6f42c1;
+  --dot-breakfast: #f5c842;
+  --dot-lunch: #f4a875;
+  --dot-dinner: #9b88cc;
+  --dot-snack: #7ec8a0;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.app-shell {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  position: relative;
+  background: var(--bg);
+  padding-bottom: 88px;
+}
+
+.serif {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.fade-in {
+  animation: fadeIn 0.2s ease forwards;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinning {
+  animation: spin 0.5s linear infinite;
+  display: inline-block;
 }

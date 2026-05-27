@@ -1,65 +1,329 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
+import MealCard from "@/components/MealCard";
+import type { Category } from "@/lib/types";
+import {
+  getSettings, getRecommendations, getRecommendation, addCookLog,
+  type StoredSettings, type Suggestion,
+} from "@/lib/store";
+
+const CATEGORIES: Category[] = ["BREAKFAST", "LUNCH", "DINNER"];
+const SNACK_CATEGORIES: Category[] = ["BREAKFAST", "LUNCH", "SNACK", "DINNER"];
+const STORAGE_KEY = "wtc_suggestions_v1";
+const COOKED_KEY = "wtc_cooked_v1";
+
+type SuggestionMap = Partial<Record<Category, Suggestion | null>>;
+
+interface StoredState {
+  date: string;
+  today: SuggestionMap;
+  tomorrow: SuggestionMap;
+}
+
+interface CookedState {
+  date: string;
+  ids: string[];
+}
+
+function todayStr() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function formatDateHeader(offsetDays: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+  const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  const label = offsetDays === 0 ? "TODAY" : "TOMORROW";
+  return `${days[d.getDay()]} · ${d.getDate()} ${months[d.getMonth()]} · ${label}`;
+}
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning.";
+  if (h < 17) return "Good afternoon.";
+  return "Good evening.";
+}
+
+function isYesterday(dateStr: string): boolean {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return dateStr === yesterday.toISOString().split("T")[0];
+}
+
+// ─── DaySection lives OUTSIDE TodayPage so React never recreates the type ─────
+
+interface DaySectionProps {
+  day: "today" | "tomorrow";
+  suggestions: SuggestionMap;
+  shuffling: Partial<Record<Category, boolean>>;
+  respinning: boolean;
+  offsetDays: number;
+  categories: Category[];
+  cookedIds: string[];
+  cookedCount: number;
+  showPhotos: boolean;
+  onCooked: (itemId: string, mealType: Category) => void;
+  onUndoCooked: (itemId: string) => void;
+  onShuffle: (day: "today" | "tomorrow", cat: Category) => void;
+  onRespin: (day: "today" | "tomorrow") => void;
+}
+
+function DaySection({
+  day, suggestions, shuffling, respinning, offsetDays, categories,
+  cookedIds, cookedCount, showPhotos, onCooked, onUndoCooked, onShuffle, onRespin,
+}: DaySectionProps) {
+  const isTomorrow = day === "tomorrow";
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ fontSize: 11, color: "var(--primary)", fontWeight: 700, letterSpacing: "0.08em" }}>
+          {formatDateHeader(offsetDays)}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+        {day === "today" && cookedCount > 0 && (
+          <div style={{ fontSize: 11, color: "#5a9e59", fontWeight: 600 }}>
+            {cookedCount}/{categories.length} cooked
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {categories.map((cat) => {
+          const s = suggestions[cat];
+          if (!s)
+            return (
+              <div key={cat} style={{ background: "var(--card)", borderRadius: 16, padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
+                No {cat.toLowerCase()} dishes added yet.{" "}
+                <Link href="/meals" style={{ color: "var(--primary)" }}>Add some →</Link>
+              </div>
+            );
+          const isCooked = day === "today" && cookedIds.includes(s.item.id);
+          return (
+            <MealCard
+              key={`${cat}-${s.item.id}`}
+              category={cat}
+              item={s.item}
+              isCooked={isCooked}
+              onCooked={() => onCooked(s.item.id, cat)}
+              onUndoCooked={() => onUndoCooked(s.item.id)}
+              onShuffle={() => onShuffle(day, cat)}
+              isShuffling={shuffling[cat]}
+              hideCookButton={isTomorrow}
+              showPhoto={showPhotos}
+              daysSinceCooked={s.daysSinceCooked}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          );
+        })}
+      </div>
+
+      <button
+        onClick={() => !respinning && onRespin(day)}
+        disabled={respinning}
+        style={{
+          width: "100%", background: "transparent", border: "1.5px dashed var(--border)",
+          borderRadius: 28, padding: "13px 0", fontSize: 13, color: "var(--text-muted)",
+          cursor: respinning ? "default" : "pointer", marginTop: 14,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          gap: 8, opacity: respinning ? 0.5 : 1,
+        }}
+      >
+        <span className={respinning ? "spinning" : ""}>↺</span>
+        {respinning ? "Spinning..." : "Re-spin the whole masala"}
+      </button>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
+export default function TodayPage() {
+  const [today, setToday] = useState<SuggestionMap>({});
+  const [tomorrow, setTomorrow] = useState<SuggestionMap>({});
+  const [settings, setSettings] = useState<StoredSettings | null>(null);
+  const [cookedIds, setCookedIds] = useState<string[]>([]);
+  const [shufflingToday, setShufflingToday] = useState<Partial<Record<Category, boolean>>>({});
+  const [shufflingTomorrow, setShufflingTomorrow] = useState<Partial<Record<Category, boolean>>>({});
+  const [respinningToday, setRespinningToday] = useState(false);
+  const [respinningTomorrow, setRespinningTomorrow] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const todayRef = useRef(today);
+  const tomorrowRef = useRef(tomorrow);
+  const settingsRef = useRef<StoredSettings | null>(null);
+  useEffect(() => { todayRef.current = today; }, [today]);
+  useEffect(() => { tomorrowRef.current = tomorrow; }, [tomorrow]);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
+
+  const initSuggestions = useCallback(() => {
+    const s = getSettings();
+    setSettings(s);
+    settingsRef.current = s;
+
+    const date = todayStr();
+
+    const rawCooked = localStorage.getItem(COOKED_KEY);
+    let cooked: CookedState = { date, ids: [] };
+    if (rawCooked) {
+      const parsed: CookedState = JSON.parse(rawCooked);
+      cooked = parsed.date === date ? parsed : { date, ids: [] };
+    }
+    setCookedIds(cooked.ids);
+
+    const rawStored = localStorage.getItem(STORAGE_KEY);
+    let stored: StoredState | null = null;
+    if (rawStored) stored = JSON.parse(rawStored) as StoredState;
+
+    let todaySuggestions: SuggestionMap;
+    let tomorrowSuggestions: SuggestionMap;
+
+    if (stored?.date === date) {
+      todaySuggestions = stored.today;
+      tomorrowSuggestions = stored.tomorrow;
+    } else if (stored && isYesterday(stored.date)) {
+      todaySuggestions = stored.tomorrow;
+      const todayIds = Object.values(stored.tomorrow).filter(Boolean).map((x) => x!.item.id);
+      tomorrowSuggestions = getRecommendations(s, todayIds);
+      persist(date, todaySuggestions, tomorrowSuggestions);
+    } else {
+      todaySuggestions = getRecommendations(s);
+      const todayIds = Object.values(todaySuggestions).filter(Boolean).map((x) => x!.item.id);
+      tomorrowSuggestions = getRecommendations(s, todayIds);
+      persist(date, todaySuggestions, tomorrowSuggestions);
+    }
+
+    setToday(todaySuggestions);
+    setTomorrow(tomorrowSuggestions);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    initSuggestions();
+  }, [initSuggestions]);
+
+  function persist(date: string, todaySugg: SuggestionMap, tomorrowSugg: SuggestionMap) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ date, today: todaySugg, tomorrow: tomorrowSugg }));
+  }
+
+  function persistCooked(ids: string[]) {
+    localStorage.setItem(COOKED_KEY, JSON.stringify({ date: todayStr(), ids }));
+  }
+
+  const handleCooked = useCallback((itemId: string, mealType: Category) => {
+    addCookLog(itemId, mealType);
+    setCookedIds((prev) => {
+      const updated = [...prev, itemId];
+      persistCooked(updated);
+      return updated;
+    });
+  }, []);
+
+  const handleUndoCooked = useCallback((itemId: string) => {
+    setCookedIds((prev) => {
+      const updated = prev.filter((id) => id !== itemId);
+      persistCooked(updated);
+      return updated;
+    });
+  }, []);
+
+  const handleShuffle = useCallback((day: "today" | "tomorrow", category: Category) => {
+    const setShuffling = day === "today" ? setShufflingToday : setShufflingTomorrow;
+    setShuffling((p) => ({ ...p, [category]: true }));
+
+    const sameDay = day === "today" ? todayRef.current : tomorrowRef.current;
+    const otherDay = day === "today" ? tomorrowRef.current : todayRef.current;
+    const excludeIds = [
+      ...Object.values(otherDay).filter(Boolean).map((s) => s!.item.id),
+      ...Object.entries(sameDay).filter(([cat, s]) => cat !== category && s).map(([, s]) => s!.item.id),
+    ];
+
+    const s = settingsRef.current ?? getSettings();
+    const suggestion = getRecommendation(category, s, excludeIds);
+
+    if (day === "today") {
+      setToday((prev) => {
+        const updated = { ...prev, [category]: suggestion };
+        persist(todayStr(), updated, tomorrowRef.current);
+        return updated;
+      });
+    } else {
+      setTomorrow((prev) => {
+        const updated = { ...prev, [category]: suggestion };
+        persist(todayStr(), todayRef.current, updated);
+        return updated;
+      });
+    }
+
+    setShuffling((p) => ({ ...p, [category]: false }));
+  }, []);
+
+  const handleRespin = useCallback((day: "today" | "tomorrow") => {
+    const setRespinning = day === "today" ? setRespinningToday : setRespinningTomorrow;
+    setRespinning(true);
+
+    const otherDay = day === "today" ? tomorrowRef.current : todayRef.current;
+    const excludeIds = Object.values(otherDay).filter(Boolean).map((s) => s!.item.id);
+    const s = settingsRef.current ?? getSettings();
+    const fresh = getRecommendations(s, excludeIds);
+
+    if (day === "today") {
+      setToday(fresh);
+      persist(todayStr(), fresh, tomorrowRef.current);
+    } else {
+      setTomorrow(fresh);
+      persist(todayStr(), todayRef.current, fresh);
+    }
+
+    setRespinning(false);
+  }, []);
+
+  const categories = settings?.enableSnacks ? SNACK_CATEGORIES : CATEGORIES;
+  const todayCooked = categories.filter((c) => {
+    const s = today[c];
+    return s && cookedIds.includes(s.item.id);
+  }).length;
+
+  return (
+    <div style={{ padding: "20px 16px 0" }}>
+      <h1 className="serif" style={{ fontSize: 32, fontWeight: 700, lineHeight: 1.15, margin: "0 0 6px" }}>
+        {getGreeting()}
+        <br />
+        What&apos;s cooking?
+      </h1>
+      {settings && (
+        <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 24px" }}>
+          Excluding dishes from the last{" "}
+          <strong style={{ color: "var(--text)" }}>{settings.avoidRepeatDays} days</strong>
+          {" "}· {settings.recommendationStyle.toLowerCase()}
+        </p>
+      )}
+
+      {loading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {[1, 2, 3].map((i) => (
+            <div key={i} style={{ background: "var(--card)", borderRadius: 16, height: 180, opacity: 0.4 }} />
+          ))}
         </div>
-      </main>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+          <DaySection
+            day="today" suggestions={today} shuffling={shufflingToday} respinning={respinningToday}
+            offsetDays={0} categories={categories} cookedIds={cookedIds} cookedCount={todayCooked}
+            showPhotos={settings?.showPhotos ?? true}
+            onCooked={(id, type) => handleCooked(id, type)} onUndoCooked={handleUndoCooked}
+            onShuffle={handleShuffle} onRespin={handleRespin}
+          />
+          <DaySection
+            day="tomorrow" suggestions={tomorrow} shuffling={shufflingTomorrow} respinning={respinningTomorrow}
+            offsetDays={1} categories={categories} cookedIds={cookedIds} cookedCount={0}
+            showPhotos={settings?.showPhotos ?? true}
+            onCooked={(id, type) => handleCooked(id, type)} onUndoCooked={handleUndoCooked}
+            onShuffle={handleShuffle} onRespin={handleRespin}
+          />
+        </div>
+      )}
     </div>
   );
 }
