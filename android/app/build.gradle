@@ -24,9 +24,9 @@ android {
             def ksKeyPass = System.getenv("KEY_PASSWORD")
             if (ksPath) {
                 storeFile file(ksPath)
-                storePassword ksStorePass
-                keyAlias ksAlias
-                keyPassword ksKeyPass
+                storePassword = ksStorePass
+                keyAlias = ksAlias
+                keyPassword = ksKeyPass
             }
         }
     }
